@@ -13,3 +13,10 @@
 # OS junk
 .DS_Store
 Thumbs.db
+
+*.lck
+
+# Non critical folders
+*_autosave-*
+/gerbers/
+/plot/
