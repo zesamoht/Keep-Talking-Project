@@ -1,0 +1,15 @@
+# KiCad backups and autosaves
+*-bak
+*.kicad_prl
+*.kicad_sch-bak
+*.kicad_pcb-bak
+*.tmp
+
+# Plot / fabrication outputs (optional)
+*.gbr
+*.drl
+*.zip
+
+# OS junk
+.DS_Store
+Thumbs.db
