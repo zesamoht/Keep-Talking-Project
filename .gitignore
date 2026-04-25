@@ -4,19 +4,24 @@
 *.kicad_sch-bak
 *.kicad_pcb-bak
 *.tmp
+*.lck
 
-# Plot / fabrication outputs (optional)
+# KiCad backup folders
+*-backups/
+*_backups/
+
+# KiCad cache
+fp-info-cache
+
+# Autosave folders
+*_autosave-*
+
+# Fabrication outputs
+gerbers/
+plot/
 *.gbr
 *.drl
-*.zip
 
 # OS junk
 .DS_Store
 Thumbs.db
-
-*.lck
-
-# Non critical folders
-*_autosave-*
-/gerbers/
-/plot/
