@@ -1,19 +1,15 @@
-# KiCad backups and autosaves
-*-bak
+# KiCad unwanted files
 *.kicad_prl
+*-bak
 *.kicad_sch-bak
 *.kicad_pcb-bak
 *.tmp
 *.lck
-
-# KiCad backup folders
-*-backups/
-*_backups/
-
-# KiCad cache
 fp-info-cache
 
-# Autosave folders
+# KiCad backup/autosave folders
+*-backups/
+*_backups/
 *_autosave-*
 
 # Fabrication outputs
@@ -21,6 +17,15 @@ gerbers/
 plot/
 *.gbr
 *.drl
+*.gbl
+*.gbs
+*.gbp
+*.gbo
+*.gm1
+*.gtl
+*.gts
+*.gtp
+*.gto
 
 # OS junk
 .DS_Store
