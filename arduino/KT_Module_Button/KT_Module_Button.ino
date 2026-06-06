@@ -246,14 +246,18 @@ void Precheck() {
 
 void SolvePuzzle() {
   // Apply rules to compute MustHold
-  if (buttonColor == 0 && labelIndex == 0) MustHold = true;          // Blue + Abort
-  else if (g_batteryCount > 1 && labelIndex == 1) MustHold = false;  // Detonate + >1 battery
-  else if (buttonColor == 2 && g_lit_CAR) MustHold = true;           // White + CAR lit
-  else if (g_batteryCount > 2 && g_lit_FRK) MustHold = false;        // FRK lit + >2 batteries
-  else if (buttonColor == 3) MustHold = true;                        // Yellow
-  else if (buttonColor == 1 && labelIndex == 2) MustHold = false;    // Red + Hold
-  else MustHold = true;                                              // Default → HOLD
+  MustHold = GetHoldPosition();    
+}
 
+bool GetHoldPosition() {                                    // Default → HOLD
+  if (buttonColor == 0 && labelIndex == 0) return true;     // Blue + Abort
+  if (g_batteryCount > 1 && labelIndex == 1) return false;  // Detonate + >1 battery
+  if (buttonColor == 2 && g_lit_CAR) return true;           // White + CAR lit
+  if (g_batteryCount > 2 && g_lit_FRK) return false;        // FRK lit + >2 batteries
+  if (buttonColor == 3) return true;                        // Yellow
+  if (buttonColor == 1 && labelIndex == 2) return false;    // Red + Hold
+  
+  return true;    
 }
 
 // ---------- Game loop ----------
