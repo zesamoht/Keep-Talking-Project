@@ -312,7 +312,7 @@ void ReadBt(){
     // Button detection with index correction
     // Mapping: Button 1 (pin 8) = M1Array[5], Button 4 (pin 5) = M1Array[8]
     // So mapping from physical to logical: Btn1 = 0, Btn2 = 1, Btn3 = 2, Btn4 = 3
-    const byte buttonOrder[4] = {5, 6, 7, 8}; // Physical pin mapping in array
+    const byte buttonOrder[4] = {8, 7, 6, 5}; // Physical pin mapping in array
     int CurrentButton = -1;
 
     // Refresh the four button channels during gameplay
