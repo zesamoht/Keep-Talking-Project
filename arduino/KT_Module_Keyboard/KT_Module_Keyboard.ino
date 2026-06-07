@@ -31,6 +31,15 @@ enum : uint8_t {
   int AnswerPos = -1;
   const int threshold = 512;         // Threshold for HIGH/LOW
   byte KeyCodes[4];                  // Keys 1 to 4
+
+  // Physical pogo pins 1 to 5 mapped to multiplexer channels
+  const byte KeyChannelOrder[4][5] = {
+    {0, 4, 1, 3, 2},       // Key 1 on M0
+    {9, 5, 8, 6, 7},       // Key 2 on M0
+    {10, 14, 11, 13, 12},  // Key 3 on M0
+    {0, 4, 1, 3, 2}        // Key 4 on M1
+  };
+
   int KeyOrder[4] = {0, 1, 2, 3}; //When reordering the keys use this array as a base
   int PressedButton = -1;            // Button pressed (0-3), or -1 if none
   int ButtonStep = 0;            // current order of button pressed (0-3)
@@ -272,7 +281,7 @@ void ReadKey(){
     for (int k = 0; k < 3; k++) {
       byte keyValue = 0;
       for (int b = 0; b < 5; b++) {
-        int idx = k * 5 + b;           // 0–4, 5–9, 10–14
+        int idx = KeyChannelOrder[k][b]; // Pogo pins 1 to 5 in PCB order
         if (M0Array[idx] > threshold) {
           keyValue |= (1 << (4 - b));  // MSB first
         }
@@ -283,7 +292,8 @@ void ReadKey(){
     // --- Decode M1: Key 4 and Button Press ---
     byte keyValue = 0;
     for (int b = 0; b < 5; b++) {
-      if (M1Array[b] > threshold) {
+      int idx = KeyChannelOrder[3][b]; // Pogo pins 1 to 5 in PCB order
+      if (M1Array[idx] > threshold) {
         keyValue |= (1 << (4 - b));
       }
     }
