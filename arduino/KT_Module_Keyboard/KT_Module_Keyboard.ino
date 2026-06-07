@@ -31,9 +31,25 @@ enum : uint8_t {
   int AnswerPos = -1;
   const int threshold = 512;         // Threshold for HIGH/LOW
   byte KeyCodes[4];                  // Keys 1 to 4
+
+  // Physical pogo pins 1 to 5 mapped to multiplexer channels
+  const byte KeyChannelOrder[4][5] = {
+    {0, 4, 1, 3, 2},       // Key 1 on M0
+    {9, 5, 8, 6, 7},       // Key 2 on M0
+    {10, 14, 11, 13, 12},  // Key 3 on M0
+    {0, 4, 1, 3, 2}        // Key 4 on M1
+  };
+
   int KeyOrder[4] = {0, 1, 2, 3}; //When reordering the keys use this array as a base
   int PressedButton = -1;            // Button pressed (0-3), or -1 if none
   int ButtonStep = 0;            // current order of button pressed (0-3)
+
+  // Button debounce / edge detection
+  int RawButton = -1;
+  int StableButton = -1;
+  unsigned long ButtonChangeMillis = 0;
+  const unsigned long ButtonDebounce = 30;
+
   const byte puzzleTable[7][6] = {
     {B11011, B01111, B00000, B01010, B10111, B01010},
     {B01100, B11011, B00111, B10100, B00011, B01111},
@@ -70,7 +86,7 @@ int  M_State       = 0;       // 0..5
 
 void setup() {
   //Pin Setup
-  pinMode(ResetBt_pin, INPUT_PULLUP);
+  pinMode(ResetBt_pin, INPUT); // Active-HIGH with external pulldown, like the other modules
   pinMode(RedLED_pin, OUTPUT);
   pinMode(GreenLED_pin, OUTPUT);
   pinMode(BlueLED_pin, OUTPUT);
@@ -130,9 +146,9 @@ void M_State_0() { // Awaiting Setup
   //Current step
     //NA
   //Next step
-  if (digitalRead(ResetBt_pin) == LOW) {
+  if (digitalRead(ResetBt_pin) == HIGH) {
     delay(50); // Simple debounce
-    if (digitalRead(ResetBt_pin) == LOW) { // Confirm button press
+    if (digitalRead(ResetBt_pin) == HIGH) { // Confirm button press
       M_State = 1;
     }
   }
@@ -156,7 +172,7 @@ void M_State_2() {
   if (Start_Signal) { 
     Start_Signal = false;
     ButtonStep = 0;
-    PressedButton = -1;
+    ResetButtonRead();
     for (int i=0;i<4;i++) digitalWrite(GreenLEDPin[i], LOW);
     M_State = 3;
   }
@@ -212,8 +228,8 @@ void M_State_5() { // Module Solved
 }
 void Precheck() { // Checking readyness
   Device_Ready = false;
+  for (int i = 0; i < 4; i++) {KeyOrder[i] = i;} // Restore the base order before sorting
   ReadKey();
-  ReadBt();
   SolvePuzzle();
   Device_Ready = (AnswerPos >= 0 ); // Définir la condition de succès
 }
@@ -258,13 +274,14 @@ void ReadKey(){
     //Serial.print(analogRead(M1_signal_pin));//debug
     M1Array[i] = analogRead(M1_signal_pin);
   }
+  digitalWrite(M1_enable_pin, HIGH);
 
   //Decode
     // --- Decode M0: Keys 1, 2, 3 ---
     for (int k = 0; k < 3; k++) {
       byte keyValue = 0;
       for (int b = 0; b < 5; b++) {
-        int idx = k * 5 + b;           // 0–4, 5–9, 10–14
+        int idx = KeyChannelOrder[k][b]; // Pogo pins 1 to 5 in PCB order
         if (M0Array[idx] > threshold) {
           keyValue |= (1 << (4 - b));  // MSB first
         }
@@ -275,7 +292,8 @@ void ReadKey(){
     // --- Decode M1: Key 4 and Button Press ---
     byte keyValue = 0;
     for (int b = 0; b < 5; b++) {
-      if (M1Array[b] > threshold) {
+      int idx = KeyChannelOrder[3][b]; // Pogo pins 1 to 5 in PCB order
+      if (M1Array[idx] > threshold) {
         keyValue |= (1 << (4 - b));
       }
     }
@@ -294,15 +312,45 @@ void ReadBt(){
     // Button detection with index correction
     // Mapping: Button 1 (pin 8) = M1Array[5], Button 4 (pin 5) = M1Array[8]
     // So mapping from physical to logical: Btn1 = 0, Btn2 = 1, Btn3 = 2, Btn4 = 3
-    const byte buttonOrder[4] = {5, 6, 7, 8}; // Physical pin mapping in array
-    PressedButton = -1;
+    const byte buttonOrder[4] = {8, 7, 6, 5}; // Physical pin mapping in array
+    int CurrentButton = -1;
+
+    // Refresh the four button channels during gameplay
+    digitalWrite(M0_enable_pin, HIGH);
+    digitalWrite(M1_enable_pin, LOW);
     for (int i = 0; i < 4; i++) {
-      if (M1Array[buttonOrder[i]] > threshold) {  // Active-HIGH with pulldown
-        PressedButton = i;          // Logical button number
-        break;
+      mux.channel(buttonOrder[i]);
+      analogRead(M1_signal_pin); // Dummy read to settle
+      delayMicroseconds(250);
+      M1Array[buttonOrder[i]] = analogRead(M1_signal_pin);
+
+      if (CurrentButton == -1 && M1Array[buttonOrder[i]] > threshold) {  // Active-HIGH with pulldown
+        CurrentButton = i;          // Logical button number
       }
     }
+    digitalWrite(M1_enable_pin, HIGH);
 
+    PressedButton = -1;
+
+    // Debounce and report only a new press
+    if (CurrentButton != RawButton) {
+      RawButton = CurrentButton;
+      ButtonChangeMillis = millis();
+    }
+
+    if ((millis() - ButtonChangeMillis) >= ButtonDebounce && StableButton != RawButton) {
+      StableButton = RawButton;
+      if (StableButton != -1) {
+        PressedButton = StableButton;
+      }
+    }
+}
+
+void ResetButtonRead(){
+  RawButton = -1;
+  StableButton = -1;
+  PressedButton = -1;
+  ButtonChangeMillis = millis();
 }
 
 void SolvePuzzle() {
