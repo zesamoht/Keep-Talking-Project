@@ -17,9 +17,9 @@ enum : uint8_t {
   K_GAME_WON      = 0x0B
 };
 
-// -----------------------------------------------------------------------------
-// Module hardware
-// -----------------------------------------------------------------------------
+// ==========================
+// Module specific variables
+// ==========================
 CD74HC4067 mux(10, 11, 12, 13);
 
 const uint8_t GreenLEDPin[4] = {9, 8, 7, 6};
@@ -45,7 +45,7 @@ uint8_t KeyOrder[4] = {0, 1, 2, 3};
 int8_t PressedButton = -1;
 uint8_t ButtonStep = 0;
 
-// Button debounce / edge detection
+// Button debounce variables
 int8_t rawButton = -1;
 int8_t stableButton = -1;
 unsigned long rawButtonChangedAt = 0;
@@ -61,34 +61,32 @@ const uint8_t puzzleTable[7][6] = {
   {B10110, B10011, B00010, B00011, B00001, B00101}
 };
 
-// -----------------------------------------------------------------------------
-// Standard module hardware
-// -----------------------------------------------------------------------------
+// Initializing Std Pin
 const uint8_t ResetBt_pin = 2;
 const uint8_t RedLED_pin = 5;
 const uint8_t GreenLED_pin = 4;
 const uint8_t BlueLED_pin = 3;
 
-// Status LEDs are wired active-LOW: LOW = on, HIGH = off.
+// Status LEDs are active-LOW
 void setStatusLED(bool redOn, bool greenOn, bool blueOn) {
   digitalWrite(RedLED_pin, redOn ? LOW : HIGH);
   digitalWrite(GreenLED_pin, greenOn ? LOW : HIGH);
   digitalWrite(BlueLED_pin, blueOn ? LOW : HIGH);
 }
 
+// LED Variables
 unsigned long previousMillis = 0;
 const unsigned long blinkInterval = 500;
 bool ledState = false;
 bool joinButtonWasPressed = false;
 
-// -----------------------------------------------------------------------------
-// Communication and game state
-// -----------------------------------------------------------------------------
+// Communication Variables
 volatile bool Start_Signal = false;
 volatile bool Mistake_Ack  = false;
 volatile bool Game_Lost    = false;
 volatile bool Game_Won     = false;
 
+// Function interaction Variables
 bool Device_Ready  = false;
 bool Mistake_Made  = false;
 bool Module_Solved = false;
@@ -97,9 +95,11 @@ volatile uint8_t M_State = 0;
 
 int8_t lastReportedState = -1;
 
+// ==========================
+// Setup & Loop
+// ==========================
 void setup() {
-  // Same join-button convention as the other modules: external pulldown,
-  // therefore HIGH means pressed.
+  // Join button uses an external pulldown: HIGH when pressed
   pinMode(ResetBt_pin, INPUT);
 
   pinMode(RedLED_pin, OUTPUT);
@@ -145,9 +145,9 @@ void loop() {
   }
 }
 
-// -----------------------------------------------------------------------------
-// I2C callbacks
-// -----------------------------------------------------------------------------
+// ==========================
+// I2C Communication Handlers
+// ==========================
 void onI2CReceive(int howMany) {
   if (howMany < 2) {
     while (Wire.available()) Wire.read();
@@ -192,13 +192,13 @@ void onI2CRequest() {
   Wire.write((uint8_t)M_State);
 }
 
-// -----------------------------------------------------------------------------
-// State machine
-// -----------------------------------------------------------------------------
-void M_State_0() {
+// ==========================
+// State Handling (STANDARD)
+// ==========================
+void M_State_0() { // Awaiting Setup
   const bool joinPressed = (digitalRead(ResetBt_pin) == HIGH);
 
-  // Detect a new press rather than repeatedly triggering while held.
+  // Detect one new press instead of repeating while held
   if (joinPressed && !joinButtonWasPressed) {
     delay(50);
     if (digitalRead(ResetBt_pin) == HIGH && Mod_Info_Ok) {
@@ -210,7 +210,7 @@ void M_State_0() {
   setStatusLED(false, false, true);
 }
 
-void M_State_1() {
+void M_State_1() { // Precheck
   Precheck();
 
   if (Device_Ready) {
@@ -222,7 +222,7 @@ void M_State_1() {
   setStatusLED(!Device_Ready, Device_Ready, false);
 }
 
-void M_State_2() {
+void M_State_2() { // Awaiting START signal
   if (Start_Signal) {
     Start_Signal = false;
     Mistake_Ack = false;
@@ -242,7 +242,7 @@ void M_State_2() {
     return;
   }
 
-  const unsigned long currentMillis = millis();
+  unsigned long currentMillis = millis();
   if (currentMillis - previousMillis >= blinkInterval) {
     previousMillis = currentMillis;
     ledState = !ledState;
@@ -251,7 +251,7 @@ void M_State_2() {
   setStatusLED(false, false, ledState);
 }
 
-void M_State_3() {
+void M_State_3() { // Game In Progress
   GameLoop();
 
   if (Game_Lost || Game_Won) {
@@ -268,7 +268,7 @@ void M_State_3() {
   setStatusLED(false, false, false);
 }
 
-void M_State_4() {
+void M_State_4() { // Mistake cycle
   if (!Game_Lost && Mistake_Ack) {
     Mistake_Ack = false;
     M_State = 3;
@@ -277,17 +277,17 @@ void M_State_4() {
   setStatusLED(true, false, false);
 }
 
-void M_State_5() {
+void M_State_5() { // Module Solved
   setStatusLED(false, true, false);
 }
 
-// -----------------------------------------------------------------------------
-// Puzzle logic
-// -----------------------------------------------------------------------------
+// ==========================
+// Module Implementation
+// ==========================
 void Precheck() {
   Device_Ready = false;
 
-  // Restore the base order before solving a new key arrangement.
+  // Restore base order before solving a new key arrangement
   for (uint8_t i = 0; i < 4; i++) {
     KeyOrder[i] = i;
   }
@@ -303,7 +303,7 @@ void Precheck() {
 void GameLoop() {
   ReadBt();
 
-  // PressedButton is an event set only once after a stable new press.
+  // PressedButton is set once for each stable press
   if (PressedButton < 0) return;
 
   Serial.print(F("Button press: "));
@@ -323,30 +323,31 @@ void GameLoop() {
 }
 
 void ReadKey() {
-  // Read keys 1-3 from M0.
+  // Fill Raw array M0
   digitalWrite(M0_enable_pin, LOW);
   digitalWrite(M1_enable_pin, HIGH);
 
   for (uint8_t i = 0; i < 16; i++) {
     mux.channel(i);
-    analogRead(M0_signal_pin);
+    analogRead(M0_signal_pin); // Dummy read to settle
     delay(3);
     M0Array[i] = analogRead(M0_signal_pin);
   }
 
-  // Read key 4 and button channels from M1.
+  // Fill Raw array M1
   digitalWrite(M0_enable_pin, HIGH);
   digitalWrite(M1_enable_pin, LOW);
 
   for (uint8_t i = 0; i < 16; i++) {
     mux.channel(i);
-    analogRead(M1_signal_pin);
+    analogRead(M1_signal_pin); // Dummy read to settle
     delay(3);
     M1Array[i] = analogRead(M1_signal_pin);
   }
 
   digitalWrite(M1_enable_pin, HIGH);
 
+  // Decode keys 1, 2 and 3 from M0
   for (uint8_t key = 0; key < 3; key++) {
     uint8_t keyValue = 0;
 
@@ -360,6 +361,7 @@ void ReadKey() {
     KeyCodes[key] = keyValue;
   }
 
+  // Decode key 4 from M1
   uint8_t keyValue = 0;
   for (uint8_t bit = 0; bit < 5; bit++) {
     if (M1Array[bit] > threshold) {
@@ -368,6 +370,7 @@ void ReadKey() {
   }
   KeyCodes[3] = keyValue;
 
+  // Debug Output
   for (uint8_t i = 0; i < 4; i++) {
     Serial.print(F("Key "));
     Serial.print(i + 1);
@@ -379,15 +382,14 @@ void ReadKey() {
 void ReadBt() {
   int8_t detectedButton = -1;
 
-  // Sample M1 during gameplay rather than reusing the values captured once
-  // during Precheck().
+  // Refresh button channels during gameplay
   digitalWrite(M0_enable_pin, HIGH);
   digitalWrite(M1_enable_pin, LOW);
 
   for (uint8_t i = 0; i < 4; i++) {
     const uint8_t channel = buttonMuxChannels[i];
     mux.channel(channel);
-    analogRead(M1_signal_pin);
+    analogRead(M1_signal_pin); // Dummy read to settle
     delayMicroseconds(250);
     M1Array[channel] = analogRead(M1_signal_pin);
 
@@ -399,6 +401,7 @@ void ReadBt() {
   digitalWrite(M1_enable_pin, HIGH);
   PressedButton = -1;
 
+  // Debounce and detect a new press
   if (detectedButton != rawButton) {
     rawButton = detectedButton;
     rawButtonChangedAt = millis();
@@ -424,6 +427,7 @@ void resetButtonScanner() {
 void SolvePuzzle() {
   AnswerPos = -1;
 
+  // Find the column containing all four keys
   for (uint8_t col = 0; col < 6; col++) {
     bool allFound = true;
 
@@ -452,6 +456,7 @@ void SolvePuzzle() {
 
   if (AnswerPos < 0) return;
 
+  // Sort KeyOrder based on the row position
   for (uint8_t i = 0; i < 3; i++) {
     for (uint8_t j = i + 1; j < 4; j++) {
       if (AnswerPosArray[KeyOrder[i]] > AnswerPosArray[KeyOrder[j]]) {
