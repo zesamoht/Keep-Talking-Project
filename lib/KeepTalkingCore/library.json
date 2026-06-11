@@ -1,0 +1,16 @@
+{
+  "name": "KeepTalkingCore",
+  "version": "0.1.0",
+  "description": "Shared protocol, status LED and state-machine helpers for Keep Talking project modules.",
+  "keywords": [
+    "arduino",
+    "platformio",
+    "keep-talking",
+    "i2c"
+  ],
+  "frameworks": "arduino",
+  "platforms": "atmelavr",
+  "build": {
+    "includeDir": "src"
+  }
+}
